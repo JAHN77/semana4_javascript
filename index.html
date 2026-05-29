@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Mini App CRUD</title>
+
+  <!-- Archivo CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Contenedor principal -->
+  <div class="container">
+
+    <h1>Gestión de Productos</h1>
+
+    <!-- Formulario -->
+    <form id="productForm" class="form">
+
+      <input 
+        type="text"
+        id="name"
+        placeholder="Nombre del producto"
+      >
+
+      <input 
+        type="number"
+        id="price"
+        placeholder="Precio"
+      >
+
+      <button type="submit" class="btn add-btn">
+        Agregar Producto
+      </button>
+
+    </form>
+
+    <!-- Mensajes dinámicos -->
+    <p id="message"></p>
+
+    <!-- Lista de productos -->
+    <ul id="productList" class="product-list"></ul>
+
+    <!-- Botón sincronizar -->
+    <button id="syncButton" class="btn sync-btn">
+      Sincronizar con API
+    </button>
+
+  </div>
+
+  <!-- Archivo JavaScript -->
+  <script src="app.js"></script>
+
+</body>
+</html>
