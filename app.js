@@ -10,6 +10,10 @@ const message = document.getElementById("message");
 
 const syncButton = document.getElementById("syncButton");
 
+const submitBtn = document.getElementById("submitBtn");
+
+const cancelBtn = document.getElementById("cancelBtn");
+
 
 // ======================================
 // VARIABLES GLOBALES
@@ -17,6 +21,12 @@ const syncButton = document.getElementById("syncButton");
 
 // Arreglo principal
 let products = [];
+
+// Set para controlar nombres duplicados
+const productNames = new Set();
+
+// Índice del producto que se está editando (null = modo agregar)
+let editingIndex = null;
 
 // URL de JSON Server
 const API_URL = "http://localhost:3000/products";
@@ -35,6 +45,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (storedProducts) {
 
     products = JSON.parse(storedProducts);
+
+    products.forEach(p => productNames.add(p.name.toLowerCase()));
 
     renderProducts();
 
@@ -100,7 +112,10 @@ function renderProducts() {
     // Crear elemento li
     const li = document.createElement("li");
 
-    li.textContent = `${product.name} - $${product.price}`;
+    // Span para el texto (permite truncar con CSS)
+    const span = document.createElement("span");
+    span.innerHTML = `<strong>${product.name}</strong><span class="price">$${product.price.toLocaleString("es-CO")}</span>`;
+    li.appendChild(span);
 
     // ==================================
     // BOTÓN EDITAR
@@ -167,7 +182,7 @@ productForm.addEventListener("submit", async (event) => {
     .trim();
 
   // ==================================
-  // VALIDACIONES
+  // VALIDACIONES COMUNES
   // ==================================
 
   if (name === "" || price === "") {
@@ -191,15 +206,83 @@ productForm.addEventListener("submit", async (event) => {
   }
 
   // ==================================
-  // CREAR OBJETO
+  // MODO ACTUALIZAR
   // ==================================
 
-  const newProduct = {
+  if (editingIndex !== null) {
 
+    const product = products[editingIndex];
+
+    // Validar duplicado solo si el nombre cambió
+    if (
+      name.toLowerCase() !== product.name.toLowerCase() &&
+      productNames.has(name.toLowerCase())
+    ) {
+
+      showMessage(
+        "Ya existe un producto con ese nombre",
+        "error"
+      );
+
+      return;
+    }
+
+    const updatedProduct = {
+      ...product,
+      name,
+      price: Number(price)
+    };
+
+    // Actualizar Set
+    productNames.delete(product.name.toLowerCase());
+    productNames.add(name.toLowerCase());
+
+    // Actualizar arreglo
+    products[editingIndex] = updatedProduct;
+
+    // Guardar Local Storage
+    saveToLocalStorage();
+
+    // Actualizar DOM
+    renderProducts();
+
+    // Actualizar API
+    if (product.id) {
+
+      await updateProductAPI(product.id, updatedProduct);
+
+    }
+
+    showMessage("Producto actualizado correctamente", "success");
+
+    // Salir del modo edición
+    resetForm();
+
+    return;
+  }
+
+  // ==================================
+  // MODO AGREGAR
+  // ==================================
+
+  // Validar nombre duplicado con Set
+  if (productNames.has(name.toLowerCase())) {
+
+    showMessage(
+      "Ya existe un producto con ese nombre",
+      "error"
+    );
+
+    return;
+  }
+
+  const newProduct = {
     name,
     price: Number(price)
-
   };
+
+  // Registrar nombre en el Set
+  productNames.add(name.toLowerCase());
 
   // Agregar al arreglo
   products.push(newProduct);
@@ -210,13 +293,9 @@ productForm.addEventListener("submit", async (event) => {
   // Actualizar DOM
   renderProducts();
 
-  // Mensaje
-  showMessage(
-    "Producto agregado correctamente",
-    "success"
-  );
+  showMessage("Producto agregado correctamente", "success");
 
-  // Guardar en API
+  // Guardar en API (si falla, revertir)
   await createProductAPI(newProduct);
 
   // Limpiar formulario
@@ -242,13 +321,20 @@ async function deleteProduct(index) {
 
     }
 
+    // Eliminar el <li> directamente del DOM con removeChild
+    const listItem = productList.children[index];
+    productList.removeChild(listItem);
+
+    // Liberar nombre del Set
+    productNames.delete(product.name.toLowerCase());
+
     // Eliminar del arreglo
     products.splice(index, 1);
 
     // Actualizar Local Storage
     saveToLocalStorage();
 
-    // Actualizar DOM
+    // Re-renderizar para actualizar índices de los botones restantes
     renderProducts();
 
     // Mensaje
@@ -272,102 +358,50 @@ async function deleteProduct(index) {
 
 
 // ======================================
-// EDITAR PRODUCTO
+// EDITAR PRODUCTO 
 // ======================================
 
-async function editProduct(index) {
+function editProduct(index) {
 
-  try {
+  const product = products[index];
 
-    // Producto actual
-    const product = products[index];
+  // Cargar datos en los inputs
+  document.getElementById("name").value = product.name;
+  document.getElementById("price").value = product.price;
 
-    // Solicitar nuevos datos
-    const newName = prompt(
-      "Nuevo nombre:",
-      product.name
-    );
+  // Activar modo edición
+  editingIndex = index;
+  submitBtn.textContent = "Actualizar Producto";
+  submitBtn.classList.replace("add-btn", "update-btn");
+  cancelBtn.style.display = "block";
+  productForm.classList.add("editing");
 
-    const newPrice = prompt(
-      "Nuevo precio:",
-      product.price
-    );
-
-    // ==================================
-    // VALIDACIONES
-    // ==================================
-
-    if (!newName || !newPrice) {
-
-      showMessage(
-        "Datos inválidos",
-        "error"
-      );
-
-      return;
-    }
-
-    if (newPrice <= 0) {
-
-      showMessage(
-        "Precio inválido",
-        "error"
-      );
-
-      return;
-    }
-
-    // ==================================
-    // OBJETO ACTUALIZADO
-    // ==================================
-
-    const updatedProduct = {
-
-      ...product,
-
-      name: newName,
-
-      price: Number(newPrice)
-
-    };
-
-    // Actualizar arreglo
-    products[index] = updatedProduct;
-
-    // Guardar Local Storage
-    saveToLocalStorage();
-
-    // Actualizar DOM
-    renderProducts();
-
-    // Actualizar API
-    if (product.id) {
-
-      await updateProductAPI(
-        product.id,
-        updatedProduct
-      );
-
-    }
-
-    // Mensaje
-    showMessage(
-      "Producto actualizado correctamente",
-      "success"
-    );
-
-  } catch (error) {
-
-    console.error(error);
-
-    showMessage(
-      "Error actualizando producto",
-      "error"
-    );
-
-  }
+  // Hacer scroll al formulario
+  productForm.scrollIntoView({ behavior: "smooth" });
 
 }
+
+
+// ======================================
+// RESETEAR FORMULARIO
+// ======================================
+
+function resetForm() {
+
+  productForm.reset();
+
+  editingIndex = null;
+
+  submitBtn.textContent = "Agregar Producto";
+  submitBtn.classList.replace("update-btn", "add-btn");
+  cancelBtn.style.display = "none";
+  productForm.classList.remove("editing");
+
+}
+
+
+// Botón cancelar
+cancelBtn.addEventListener("click", resetForm);
 
 
 // ======================================
@@ -386,6 +420,10 @@ async function getProductsAPI() {
 
     // Actualizar arreglo
     products = data;
+
+    // Reconstruir el Set con los datos del servidor
+    productNames.clear();
+    products.forEach(p => productNames.add(p.name.toLowerCase()));
 
     // Actualizar DOM
     renderProducts();
@@ -438,15 +476,31 @@ async function createProductAPI(product) {
 
     console.log("POST:", data);
 
-    // Guardar id generado
+    // Guardar id generado por la API
     products[products.length - 1].id = data.id;
 
-    // Actualizar Local Storage
+    // Actualizar Local Storage con el id
     saveToLocalStorage();
 
   } catch (error) {
 
     console.error("Error POST:", error);
+
+    // Revertir: quitar el producto del arreglo, Set y Local Storage
+    const reverted = products.pop();
+
+    if (reverted) {
+      productNames.delete(reverted.name.toLowerCase());
+    }
+
+    saveToLocalStorage();
+
+    renderProducts();
+
+    showMessage(
+      "No se pudo guardar en el servidor, se revirtió el producto",
+      "error"
+    );
 
   }
 

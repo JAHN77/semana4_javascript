@@ -1,9 +1,14 @@
 {
   "products": [
     {
+      "name": "agua de manzana",
+      "price": 1000,
+      "id": "CDmHruSvc3s"
+    },
+    {
       "name": "agua con gas",
-      "price": 1500,
-      "id": "2G8chMUlYxc"
+      "price": 1000,
+      "id": "eXzwiyE3EpE"
     }
   ],
   "$schema": "./node_modules/json-server/schema.json"
